@@ -3,5 +3,5 @@ pandas
 plotly
 folium
 streamlit-folium
-pyarrow
 gdown
+pyarrow
