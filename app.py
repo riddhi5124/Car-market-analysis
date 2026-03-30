@@ -17,7 +17,6 @@ st.markdown("""
     div[data-testid="stMetricValue"] { font-size: 26px; color: #00d4ff; }
     section[data-testid="stSidebar"] { background-color: #161b22; }
     
-    /* Responsive Spec Card Styling */
     .spec-card {
         border: 1px solid #333; 
         padding: 20px; 
@@ -25,7 +24,7 @@ st.markdown("""
         background-color: #1e252e;
         margin-bottom: 20px;
         transition: 0.3s;
-        min-height: 250px; /* Increased min-height to prevent spill-over */
+        min-height: 280px; /* Adjusted to ensure no spill-over */
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -37,7 +36,7 @@ st.markdown("""
     }
     .spec-label { color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
     .spec-value { color: #ffffff; font-size: 14px; font-weight: 500; margin-bottom: 10px; }
-    .model-title { color: #00d4ff; margin-top: 0; margin-bottom: 15px; font-size: 1.2rem; }
+    .model-title { color: #00d4ff; margin-top: 0; margin-bottom: 15px; font-size: 1.1rem; border-bottom: 1px solid #333; padding-bottom: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -54,10 +53,18 @@ def load_data(file_id):
         cols = ["manufacturer", "model", "year", "price", "lat", "long", 
                 "fuel", "drive", "transmission", "type"]
         df = pd.read_parquet(OUTPUT_FILE, columns=cols)
+        
+        # --- NEW: DROP ROWS WITH 'other' ---
+        # Checks manufacturer, fuel, transmission, and type for the word 'other'
+        for col in ["manufacturer", "fuel", "transmission", "type"]:
+            df = df[~df[col].astype(str).str.lower().str.contains("other", na=False)]
+
+        # Optimization
         df['price'] = pd.to_numeric(df['price'], downcast='float')
         df['year'] = pd.to_numeric(df['year'], downcast='integer')
         for col in ["manufacturer", "fuel", "drive", "transmission", "type"]:
             df[col] = df[col].astype('category')
+            
         return df.dropna(subset=["manufacturer", "model", "price"])
     except Exception as e:
         st.error(f"Load Error: {e}"); return pd.DataFrame()
@@ -68,7 +75,6 @@ df = load_data(FILE_ID)
 st.sidebar.markdown("<h1 style='text-align: center; color: #00d4ff;'>🏎️ VehiclePro</h1>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
 
-# Updated Sidebar Name as requested
 page = st.sidebar.radio("NAVIGATE EXPLORER", [
     "🏠 Dashboard Home", 
     "📊 Manufacturer Inventory",
@@ -91,7 +97,6 @@ if page == "🏠 Dashboard Home":
         c3.metric("Avg Price", f"${df['price'].mean():,.0f}")
         c4.metric("Avg Age", f"{int(2026 - df['year'].median())} Yrs")
         st.markdown("---")
-        st.markdown("### 📋 Live Data Feed")
         st.dataframe(df.head(15), use_container_width=True)
 
 elif page == "📊 Manufacturer Inventory":
@@ -105,7 +110,6 @@ elif page == "📊 Manufacturer Inventory":
         if search:
             b_df = b_df[b_df['model'].str.contains(search, case=False)]
 
-        # Aggregate data for clean cards
         grouped = b_df.groupby('model', observed=True).agg({
             'price': 'mean', 'year': 'median',
             'fuel': lambda x: x.mode().iat[0] if not x.mode().empty else 'N/A',
@@ -114,45 +118,43 @@ elif page == "📊 Manufacturer Inventory":
             'type': lambda x: x.mode().iat[0] if not x.mode().empty else 'N/A'
         }).reset_index().head(24)
 
-        st.write(f"Displaying technical specifications for **{brand}**:")
-        
         cols = st.columns(3)
         for i, (idx, row) in enumerate(grouped.iterrows()):
             with cols[i % 3]:
                 st.markdown(f"""
                 <div class="spec-card">
                     <h3 class="model-title">{row['model'].title()}</h3>
-                    <div style="display: flex; justify-content: space-between;">
-                        <div style="width: 48%;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                        <div style="flex: 1; min-width: 100px;">
                             <div class="spec-label">Avg Price</div>
                             <div class="spec-value">${row['price']:,.0f}</div>
                             <div class="spec-label">Fuel</div>
                             <div class="spec-value">{row['fuel'].title()}</div>
                         </div>
-                        <div style="width: 48%;">
+                        <div style="flex: 1; min-width: 100px;">
                             <div class="spec-label">Median Year</div>
                             <div class="spec-value">{int(row['year'])}</div>
                             <div class="spec-label">Gearbox</div>
                             <div class="spec-value">{row['transmission'].title()}</div>
                         </div>
                     </div>
-                    <hr style="border:0.5px solid #444; margin: 10px 0;">
-                    <div class="spec-label">Drive / Configuration</div>
-                    <div class="spec-value">{row['drive'].upper()} • {row['type'].title()}</div>
+                    <div style="margin-top: 10px;">
+                        <div class="spec-label">Drive / Configuration</div>
+                        <div class="spec-value">{row['drive'].upper()} • {row['type'].title()}</div>
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
 
 elif page == "📈 Market Trends":
     st.title("📈 Advanced Market Insights")
-    
     t1, t2, t3 = st.tabs(["📉 Depreciation", "🏗️ Market Mix", "🔗 Correlations"])
     
     with t1:
         st.subheader("Price Depreciation vs. Vehicle Year")
         sample_df = df.sample(min(len(df), 3000))
+        # This chart requires 'statsmodels' in requirements.txt
         fig_trend = px.scatter(sample_df, x="year", y="price", color="fuel",
-                               trendline="lowess", template="plotly_dark", opacity=0.4,
-                               labels={"year": "Model Year", "price": "Price ($)"})
+                               trendline="lowess", template="plotly_dark", opacity=0.4)
         st.plotly_chart(fig_trend, use_container_width=True)
 
     with t2:
