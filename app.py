@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
+import gdown
+import os
 import plotly.express as px
 import folium
-import requests
-from io import BytesIO
 from streamlit_folium import folium_static
 from folium.plugins import HeatMap
 
@@ -11,55 +11,44 @@ st.set_page_config(page_title="Used Vehicle Market Analysis", layout="wide")
 
 # --- DATA CONFIGURATION ---
 FILE_ID = "17VhcD1SApY6M1escKpKloilcO3XAMeWK"
+OUTPUT_FILE = "vehicles.parquet"
 
-@st.cache_data(show_spinner="Downloading Data from Cloud...")
-def load_data_from_drive(id):
-    # This URL handles the "Large File" confirmation from Google Drive
-    def get_confirm_token(response):
-        for key, value in response.cookies.items():
-            if key.startswith('download_warning'):
-                return value
-        return None
-
-    URL = "https://docs.google.com/uc?export=download"
-    session = requests.Session()
-    response = session.get(URL, params={'id': id}, stream=True)
-    token = get_confirm_token(response)
-
-    if token:
-        params = {'id': id, 'confirm': token}
-        response = session.get(URL, params=params, stream=True)
+@st.cache_data(show_spinner="Syncing with Cloud Database...")
+def load_data(file_id):
+    # Use gdown to handle the large file bypass automatically
+    url = f'https://drive.google.com/uc?id={file_id}'
     
+    if not os.path.exists(OUTPUT_FILE):
+        gdown.download(url, OUTPUT_FILE, quiet=False)
+
     try:
-        # Read the parquet from the session response
-        df = pd.read_parquet(BytesIO(response.content))
+        df = pd.read_parquet(OUTPUT_FILE)
         
-        # Immediate RAM Optimization
+        # RAM Optimizations
         required_cols = ["manufacturer", "model", "year", "price", "lat", "long", 
                          "cylinders", "fuel", "drive", "type", "transmission"]
         df = df[required_cols]
 
-        # Downcasting and Categories
+        # Downcasting to stay within Streamlit's 1GB limit
         df['price'] = pd.to_numeric(df['price'], downcast='float')
         df['year'] = pd.to_numeric(df['year'], downcast='integer')
         for col in ["manufacturer", "fuel", "drive", "type", "transmission"]:
             df[col] = df[col].astype('category')
 
-        return df.dropna(subset=["manufacturer", "model", "year", "price", "lat", "long"])
+        return df.dropna(subset=["manufacturer", "model", "price", "lat", "long"])
     except Exception as e:
-        st.error(f"Error parsing file: {e}. Ensure the file on Drive is a valid .parquet file.")
+        st.error(f"Error loading data: {e}")
         return pd.DataFrame()
 
 # Load data automatically
-df = load_data_from_drive(FILE_ID)
+df = load_data(FILE_ID)
 
-# --- SIDEBAR NAVIGATION (NO UPLOADER) ---
+# --- SIDEBAR NAVIGATION (No Uploader) ---
 st.sidebar.title("Navigation")
-
 if not df.empty:
     page = st.sidebar.radio("Go to", [
-        "Home", "Models by Company", "Most Listed Vehicle Brands", 
-        "Transmission vs Type", "Manufacturer vs Drive", "Brand-Specific Heatmap"
+        "Home", "Models by Company", "Most Listed Brands", 
+        "Transmission vs Type", "Manufacturer vs Drive", "Brand Heatmap"
     ])
 else:
     page = "Home"
@@ -73,12 +62,12 @@ if page == "Home":
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Listings", f"{len(df):,}")
         col2.metric("Unique Brands", df['manufacturer'].nunique())
-        col3.metric("Avg Price", f"${df['price'].mean():,.2f}")
+        col2.metric("Avg Price", f"${df['price'].mean():,.2f}")
         st.dataframe(df.head(10), use_container_width=True)
     else:
         st.error("Dataset not found. Check Drive permissions or ID.")
 
-# [Rest of the visualization code from previous turns remains the same]
+# [Your visualization logic for the other pages goes here...]
 
 elif page == "Models by Company":
     st.subheader("Models by Manufacturer")
