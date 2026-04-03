@@ -10,7 +10,7 @@ from folium.plugins import HeatMap
 # 1. Page Config & Professional Branding
 st.set_page_config(page_title="Vehicle Analytics Pro", layout="wide")
 
-# Custom CSS for UI Polish and Spec Cards
+#  CSS for UI Polish and Spec Cards
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
@@ -75,9 +75,6 @@ page = st.sidebar.radio("NAVIGATE EXPLORER", [
     "Regional Heatmap"
 ])
 
-st.sidebar.markdown("---")
-st.sidebar.caption("BSc Data Science Portfolio")
-st.sidebar.caption("By Riddhiman Mazumder")
 
 # --- PAGES ---
 
@@ -155,7 +152,6 @@ elif page == "Market Trends":
     
     with t1:
         st.subheader("Depreciation Curve by Fuel Type")
-        # Sample for scatter performance
         sample_df = df.sample(min(len(df), 2500))
         fig_trend = px.scatter(sample_df, x="year", y="price", color="fuel",
                                trendline="lowess", template="plotly_dark", opacity=0.4)
@@ -163,7 +159,6 @@ elif page == "Market Trends":
 
     with t2:
         st.subheader("Body Style & Drive Configuration Market Share")
-        # Sunburst is better with a clean sample to avoid clutter
         sun_df = df.dropna(subset=['type', 'drive']).sample(min(len(df), 2000))
         fig_sun = px.sunburst(
             sun_df, 
@@ -200,6 +195,5 @@ elif page == "Regional Heatmap":
     if not m_df.empty:
         center = [m_df['lat'].mean(), m_df['long'].mean()]
         m = folium.Map(location=center, zoom_start=4, tiles="CartoDB dark_matter")
-        # Sampling map points for performance
         HeatMap(m_df[['lat', 'long']].sample(min(len(m_df), 2000)).values.tolist(), radius=10, blur=15).add_to(m)
         folium_static(m)
