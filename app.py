@@ -148,13 +148,18 @@ elif page == "Manufacturer Inventory":
 elif page == "Market Trends":
     st.title("Advanced Market Share & Trends")
     
-    t1, t2, t3 = st.tabs(["Price Depreciation", "Market Share (Hierarchical)", "Correlation Matrix"])
+    t1, t2, t3, t4 = st.tabs([
+        "Price Depreciation", 
+        "Market Share (Hierarchical)", 
+        "Market Concentration (1)", 
+        "Feature Interconnectivity (3)"
+    ])
     
     with t1:
         st.subheader("Depreciation Curve by Fuel Type")
         sample_df = df.sample(min(len(df), 2500))
         fig_trend = px.scatter(sample_df, x="year", y="price", color="fuel",
-                               trendline="lowess", template="plotly_dark", opacity=0.4)
+                                trendline="lowess", template="plotly_dark", opacity=0.4)
         st.plotly_chart(fig_trend, use_container_width=True)
 
     with t2:
@@ -172,19 +177,38 @@ elif page == "Market Trends":
         st.plotly_chart(fig_sun, use_container_width=True)
         st.info("Click on a center slice to drill down into that category's specific drive configurations.")
 
-with t3:
-    st.subheader("Feature Interconnectivity")
-    # Take a sample for performance
-    sample_pc = df.sample(min(len(df), 1000))
-    fig_parallel = px.parallel_categories(
-        sample_pc, 
-        dimensions=['fuel', 'transmission', 'drive'],
-        color="price",
-        color_continuous_scale=px.colors.sequential.Tealgrn,
-        template="plotly_dark"
-    )
-    st.plotly_chart(fig_parallel, use_container_width=True)
-    st.caption("Visualizing the relationship between Fuel, Gearbox, and Drive types.")
+    with t3:
+        # --- NEW VISUALIZATION 1: DENSITY HEATMAP ---
+        st.subheader("Market 'Sweet Spot': Price vs. Age")
+        fig_density = px.density_heatmap(
+            df, 
+            x="year", 
+            y="price", 
+            nbinsx=35, 
+            nbinsy=35, 
+            color_continuous_scale="Viridis",
+            template="plotly_dark",
+            labels={'year': 'Model Year', 'price': 'Price ($)'}
+        )
+        st.plotly_chart(fig_density, use_container_width=True)
+        st.caption("The brightest regions indicate where the highest volume of listings exists.")
+
+    with t4:
+        # --- NEW VISUALIZATION 3: PARALLEL CATEGORIES ---
+        st.subheader("Feature Interconnectivity Flow")
+        # Filtering out NAs for a cleaner flow diagram
+        flow_df = df.dropna(subset=['fuel', 'transmission', 'drive']).sample(min(len(df), 1200))
+        
+        fig_parallel = px.parallel_categories(
+            flow_df, 
+            dimensions=['fuel', 'transmission', 'drive'],
+            color="price",
+            color_continuous_scale=px.colors.sequential.Tealgrn,
+            template="plotly_dark",
+            labels={'fuel': 'Fuel Type', 'transmission': 'Gearbox', 'drive': 'Drivetrain'}
+        )
+        st.plotly_chart(fig_parallel, use_container_width=True)
+        st.info("Trace the lines to see how specific configurations impact the market price.")
 
 elif page == "Regional Heatmap":
     st.title("Geographic Supply Density")
