@@ -172,11 +172,19 @@ elif page == "Market Trends":
         st.plotly_chart(fig_sun, use_container_width=True)
         st.info("Click on a center slice to drill down into that category's specific drive configurations.")
 
-    with t3:
-        st.subheader("Statistical Correlations")
-        corr = df[['price', 'year', 'lat', 'long']].corr()
-        fig_heat = px.imshow(corr, text_auto=".2f", color_continuous_scale='RdBu_r', template="plotly_dark")
-        st.plotly_chart(fig_heat, use_container_width=True)
+with t3:
+    st.subheader("Feature Interconnectivity")
+    # Take a sample for performance
+    sample_pc = df.sample(min(len(df), 1000))
+    fig_parallel = px.parallel_categories(
+        sample_pc, 
+        dimensions=['fuel', 'transmission', 'drive'],
+        color="price",
+        color_continuous_scale=px.colors.sequential.Tealgrn,
+        template="plotly_dark"
+    )
+    st.plotly_chart(fig_parallel, use_container_width=True)
+    st.caption("Visualizing the relationship between Fuel, Gearbox, and Drive types.")
 
 elif page == "Regional Heatmap":
     st.title("Geographic Supply Density")
